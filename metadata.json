@@ -1,0 +1,6 @@
+{
+  "name": "EarthHarvest Organic Food & Local Farm Market",
+  "description": "Local SEO optimized website for organic food, fresh farm produce, certified organic groceries, and farm-to-table delivery with interactive Google Maps and local search optimization.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
