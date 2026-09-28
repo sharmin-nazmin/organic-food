@@ -1,13 +1,22 @@
 import React, { useState } from 'react';
 import { APIProvider, Map, AdvancedMarker, Pin, InfoWindow } from '@vis.gl/react-google-maps';
 import { MapPin, Phone, Clock, Navigation, CheckCircle2, ShieldCheck, Car, Bike, Sparkles } from 'lucide-react';
+import { StoreSettings } from '../types/store';
 
 interface GoogleMapsSectionProps {
   apiKey: string;
+  settings?: StoreSettings;
 }
 
-export const GoogleMapsSection: React.FC<GoogleMapsSectionProps> = ({ apiKey }) => {
-  const storeLocation = { lat: 45.5165, lng: -122.6515 };
+export const GoogleMapsSection: React.FC<GoogleMapsSectionProps> = ({ apiKey, settings }) => {
+  const storeLocation = { 
+    lat: settings?.lat ?? 45.5165, 
+    lng: settings?.lng ?? -122.6515 
+  };
+  const storeName = settings?.storeName || 'EarthHarvest Organic Market';
+  const fullAddress = settings ? `${settings.address}, ${settings.cityStateZip}` : '1420 SE Belmont St, Portland, OR 97214';
+  const phone = settings?.phone || '(503) 555-0198';
+
   const [selectedMarker, setSelectedMarker] = useState<boolean>(true);
   const [directionsFrom, setDirectionsFrom] = useState('');
   const [directionsStatus, setDirectionsStatus] = useState<string | null>(null);
@@ -15,10 +24,10 @@ export const GoogleMapsSection: React.FC<GoogleMapsSectionProps> = ({ apiKey }) 
   const handleGetDirections = (e: React.FormEvent) => {
     e.preventDefault();
     if (!directionsFrom.trim()) return;
-    const destination = encodeURIComponent("1420 SE Belmont St, Portland, OR 97214");
+    const destination = encodeURIComponent(fullAddress);
     const origin = encodeURIComponent(directionsFrom);
     window.open(`https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}`, '_blank', 'noopener,noreferrer');
-    setDirectionsStatus(`Opened Google Maps route from "${directionsFrom}" to EarthHarvest Market.`);
+    setDirectionsStatus(`Opened Google Maps route from "${directionsFrom}" to ${storeName}.`);
   };
 
   return (
@@ -32,16 +41,16 @@ export const GoogleMapsSection: React.FC<GoogleMapsSectionProps> = ({ apiKey }) 
               Verified Google Maps Local Business Listing
             </div>
             <h3 className="text-2xl md:text-3xl font-serif font-bold text-white tracking-tight">
-              Visit EarthHarvest Organic Market &amp; Farm Stand
+              Visit {storeName}
             </h3>
             <p className="text-stone-400 text-sm mt-1">
-              1420 SE Belmont St, Portland, OR 97214 • Central Eastside / Belmont District
+              {fullAddress}
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
             <a
-              href="https://maps.google.com/?q=1420+SE+Belmont+St,+Portland,+OR+97214"
+              href={`https://maps.google.com/?q=${encodeURIComponent(fullAddress)}`}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold transition-all shadow-lg shadow-emerald-900/40"
@@ -50,11 +59,11 @@ export const GoogleMapsSection: React.FC<GoogleMapsSectionProps> = ({ apiKey }) 
               Open in Google Maps App
             </a>
             <a
-              href="tel:+15035550198"
+              href={`tel:${phone.replace(/[^0-9+]/g, '')}`}
               className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-200 text-sm font-medium transition-colors border border-stone-700"
             >
               <Phone className="w-4 h-4 text-emerald-400" />
-              (503) 555-0198
+              {phone}
             </a>
           </div>
         </div>
@@ -67,6 +76,7 @@ export const GoogleMapsSection: React.FC<GoogleMapsSectionProps> = ({ apiKey }) 
           {apiKey ? (
             <APIProvider apiKey={apiKey}>
               <Map
+                key={`${storeLocation.lat}-${storeLocation.lng}`}
                 style={{ width: '100%', height: '100%', minHeight: '380px' }}
                 defaultCenter={storeLocation}
                 defaultZoom={15}
@@ -79,7 +89,7 @@ export const GoogleMapsSection: React.FC<GoogleMapsSectionProps> = ({ apiKey }) 
                 <AdvancedMarker
                   position={storeLocation}
                   onClick={() => setSelectedMarker(true)}
-                  title="EarthHarvest Organic Food & Farm Stand"
+                  title={storeName}
                 >
                   <Pin
                     background="#059669"
@@ -99,20 +109,20 @@ export const GoogleMapsSection: React.FC<GoogleMapsSectionProps> = ({ apiKey }) 
                         100% Certified Organic
                       </div>
                       <h4 className="font-serif font-bold text-base text-stone-900 leading-tight">
-                        EarthHarvest Organic Market
+                        {storeName}
                       </h4>
                       <p className="text-xs text-stone-600 mt-1">
-                        1420 SE Belmont St, Portland, OR 97214
+                        {fullAddress}
                       </p>
                       <div className="flex items-center gap-1 text-xs text-amber-600 font-semibold mt-1">
                         <span>★ 4.9</span>
                         <span className="text-stone-400 font-normal">(384 Google Reviews)</span>
                       </div>
                       <p className="text-[11px] text-stone-500 mt-1.5 border-t border-stone-200 pt-1.5">
-                        Open today until 8:00 PM • Free electric vehicle charging &amp; bike racks
+                        {settings?.hoursWeekday || 'Open today until 8:00 PM'} • Free EV charging &amp; bike racks
                       </p>
                       <a
-                        href="https://maps.google.com/?q=1420+SE+Belmont+St,+Portland,+OR+97214"
+                        href={`https://maps.google.com/?q=${encodeURIComponent(fullAddress)}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="mt-2 block w-full text-center py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded text-xs font-semibold"
@@ -129,7 +139,7 @@ export const GoogleMapsSection: React.FC<GoogleMapsSectionProps> = ({ apiKey }) 
               <MapPin className="w-12 h-12 text-emerald-500 mb-3 animate-bounce" />
               <p className="text-stone-300 font-medium">Google Maps interactive canvas ready</p>
               <p className="text-xs text-stone-500 mt-1 max-w-md">
-                1420 SE Belmont St, Portland, OR 97214 • Geocoordinates 45.5165° N, 122.6515° W
+                {fullAddress} • Geocoordinates {storeLocation.lat}° N, {storeLocation.lng}° W
               </p>
             </div>
           )}
@@ -137,7 +147,7 @@ export const GoogleMapsSection: React.FC<GoogleMapsSectionProps> = ({ apiKey }) 
           {/* Quick Overlay Badge */}
           <div className="absolute top-4 left-4 z-10 bg-stone-900/90 backdrop-blur-md px-3.5 py-2 rounded-xl border border-stone-700/80 shadow-lg text-xs font-medium text-stone-200 flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span>Live Store Hours: Open Now (7:30 AM – 8:00 PM)</span>
+            <span>Live Store Hours: {settings?.hoursWeekday || 'Mon - Sat: 7:30 AM – 8:00 PM'}</span>
           </div>
         </div>
 
@@ -183,8 +193,8 @@ export const GoogleMapsSection: React.FC<GoogleMapsSectionProps> = ({ apiKey }) 
                 <Clock className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" />
                 <div>
                   <h5 className="text-xs font-semibold text-stone-200">Local Operating Hours</h5>
-                  <p className="text-xs text-stone-400">Monday – Saturday: 7:30 AM – 8:00 PM</p>
-                  <p className="text-xs text-stone-400">Sunday: 8:30 AM – 6:00 PM</p>
+                  <p className="text-xs text-stone-400">{settings?.hoursWeekday || 'Monday – Saturday: 7:30 AM – 8:00 PM'}</p>
+                  <p className="text-xs text-stone-400">{settings?.hoursSunday || 'Sunday: 8:30 AM – 6:00 PM'}</p>
                 </div>
               </div>
 
@@ -192,7 +202,7 @@ export const GoogleMapsSection: React.FC<GoogleMapsSectionProps> = ({ apiKey }) 
                 <Car className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" />
                 <div>
                   <h5 className="text-xs font-semibold text-stone-200">Parking &amp; Curbside Pickup</h5>
-                  <p className="text-xs text-stone-400">Dedicated 24-car customer lot behind store. 10 designated curbside pickup bays.</p>
+                  <p className="text-xs text-stone-400">{settings?.parkingNote || 'Dedicated 24-car customer lot behind store. 10 designated curbside bays.'}</p>
                 </div>
               </div>
 

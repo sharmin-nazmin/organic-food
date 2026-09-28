@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Product } from '../data/organicFoodData';
-import { ShoppingBag, X, Check, ArrowRight, ShieldCheck, Truck, MapPin } from 'lucide-react';
+import { ShoppingBag, X, Check, ArrowRight, ShieldCheck, Truck, MapPin, User, Phone } from 'lucide-react';
+import { useStore } from '../context/StoreContext';
 
 interface CartModalProps {
   isOpen: boolean;
@@ -17,8 +18,13 @@ export const CartModal: React.FC<CartModalProps> = ({
   onUpdateQuantity,
   onClearCart,
 }) => {
+  const { createOrder, storeSettings } = useStore();
   const [deliveryType, setDeliveryType] = useState<'pickup' | 'local_delivery'>('pickup');
+  const [customerName, setCustomerName] = useState('Elena Vance');
+  const [customerPhone, setCustomerPhone] = useState('(503) 555-0199');
+  const [customerAddress, setCustomerAddress] = useState('1840 SE Hawthorne Blvd, Portland, OR');
   const [isOrdered, setIsOrdered] = useState(false);
+  const [orderId, setOrderId] = useState<string>('');
 
   if (!isOpen) return null;
 
@@ -28,12 +34,29 @@ export const CartModal: React.FC<CartModalProps> = ({
 
   const handleCheckout = (e: React.FormEvent) => {
     e.preventDefault();
+    const created = createOrder({
+      customerName: customerName || 'Neighbor Customer',
+      customerPhone: customerPhone || '(503) 555-0100',
+      deliveryType,
+      deliveryAddress: deliveryType === 'pickup' ? `${storeSettings.address} (Curbside Bay)` : customerAddress,
+      items: cart.map((i) => ({
+        productId: i.product.id,
+        productName: i.product.name,
+        quantity: i.quantity,
+        price: i.product.price,
+        unit: i.product.unit,
+      })),
+      subtotal,
+      deliveryFee,
+      total,
+    });
+    setOrderId(created.id);
     setIsOrdered(true);
     setTimeout(() => {
       onClearCart();
       setIsOrdered(false);
       onClose();
-    }, 2500);
+    }, 2800);
   };
 
   return (
@@ -62,10 +85,10 @@ export const CartModal: React.FC<CartModalProps> = ({
             <h4 className="font-serif font-bold text-2xl text-stone-900">Order Placed Successfully!</h4>
             <p className="text-sm text-stone-600 max-w-sm mx-auto">
               Thank you for supporting Oregon organic family farmers! Your order is being harvested and prepped for{' '}
-              {deliveryType === 'pickup' ? 'curbside pickup at 1420 SE Belmont St' : 'same-day eco delivery'}.
+              {deliveryType === 'pickup' ? `curbside pickup at ${storeSettings.address}` : 'same-day eco delivery'}.
             </p>
-            <div className="p-3 bg-stone-50 rounded-xl text-xs text-stone-500 font-mono">
-              Confirmation #EH-{Math.floor(100000 + Math.random() * 900000)}
+            <div className="p-3 bg-stone-50 rounded-xl text-xs text-emerald-800 font-mono font-bold">
+              Confirmation #{orderId}
             </div>
           </div>
         ) : (
@@ -190,7 +213,46 @@ export const CartModal: React.FC<CartModalProps> = ({
                 </div>
 
                 {/* Complete Order Button */}
-                <form onSubmit={handleCheckout}>
+                <form onSubmit={handleCheckout} className="space-y-3">
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-stone-600 mb-1">Your Name</label>
+                      <input
+                        type="text"
+                        required
+                        value={customerName}
+                        onChange={(e) => setCustomerName(e.target.value)}
+                        placeholder="Elena Vance"
+                        className="w-full p-2 bg-stone-50 border border-stone-200 rounded-xl text-xs text-stone-900 focus:outline-none focus:border-emerald-600"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-stone-600 mb-1">Phone Number</label>
+                      <input
+                        type="tel"
+                        required
+                        value={customerPhone}
+                        onChange={(e) => setCustomerPhone(e.target.value)}
+                        placeholder="(503) 555-0199"
+                        className="w-full p-2 bg-stone-50 border border-stone-200 rounded-xl text-xs text-stone-900 focus:outline-none focus:border-emerald-600"
+                      />
+                    </div>
+                  </div>
+
+                  {deliveryType === 'local_delivery' && (
+                    <div className="text-xs">
+                      <label className="block text-[11px] font-semibold text-stone-600 mb-1">Delivery Address</label>
+                      <input
+                        type="text"
+                        required
+                        value={customerAddress}
+                        onChange={(e) => setCustomerAddress(e.target.value)}
+                        placeholder="Street Address, Portland"
+                        className="w-full p-2 bg-stone-50 border border-stone-200 rounded-xl text-xs text-stone-900 focus:outline-none focus:border-emerald-600"
+                      />
+                    </div>
+                  )}
+
                   <button
                     type="submit"
                     className="w-full py-3.5 rounded-2xl bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-sm tracking-wide shadow-lg shadow-emerald-950/20 transition-all flex items-center justify-center gap-2"

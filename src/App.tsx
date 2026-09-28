@@ -1,29 +1,49 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  PRODUCTS, REVIEWS, LOCAL_FARMS, LOCAL_SEO_KEYWORDS, Product 
-} from './data/organicFoodData';
+import { useStore } from './context/StoreContext';
+import { Product } from './types/store';
 import { GoogleMapsSection } from './components/GoogleMapsSection';
 import { ProductCatalog } from './components/ProductCatalog';
 import { ProductDetailModal } from './components/ProductDetailModal';
 import { CartModal } from './components/CartModal';
 import { SeoDashboardModal } from './components/SeoDashboardModal';
+import { AdminPanel } from './components/AdminPanel';
+import { AdminLoginModal } from './components/AdminLoginModal';
 import { 
   MapPin, Phone, Mail, Clock, ShoppingBag, ShieldCheck, Heart, 
   ChevronRight, Award, Leaf, Search, Navigation, Zap, ExternalLink, 
-  Sparkles, CheckCircle2, MessageSquare, ArrowUpRight, Menu, X
+  Sparkles, CheckCircle2, MessageSquare, ArrowUpRight, Menu, X, 
+  Lock, Settings, ShieldAlert, Edit3
 } from 'lucide-react';
 
 export default function App() {
+  const {
+    products,
+    storeSettings,
+    farms,
+    reviews,
+    orders,
+    isAdmin,
+    adminLogout,
+  } = useStore();
+
   // Navigation / SEO Clean URL State
   const [currentRoute, setCurrentRoute] = useState<string>('home');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [cart, setCart] = useState<{ product: Product; quantity: number }[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isSeoModalOpen, setIsSeoModalOpen] = useState(false);
+  const [isAdminLoginOpen, setIsAdminLoginOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Read Maps API Key from env
   const apiKey = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string) || '';
+
+  // Synchronize dynamic title
+  useEffect(() => {
+    if (storeSettings.metaTitle) {
+      document.title = storeSettings.metaTitle;
+    }
+  }, [storeSettings.metaTitle]);
 
   // Synchronize hash routing for SEO friendly URL structures
   useEffect(() => {
@@ -31,11 +51,11 @@ export default function App() {
       const hash = window.location.hash.replace('#/', '').replace('#', '');
       if (!hash || hash === '') {
         setCurrentRoute('home');
-      } else if (['organic-produce', 'farm-boxes', 'local-farmers', 'contact', 'reviews'].includes(hash)) {
+      } else if (['organic-produce', 'farm-boxes', 'local-farmers', 'contact', 'reviews', 'admin'].includes(hash)) {
         setCurrentRoute(hash);
       } else {
         // Check if hash matches product id
-        const prod = PRODUCTS.find((p) => p.id === hash);
+        const prod = products.find((p) => p.id === hash);
         if (prod) {
           setSelectedProduct(prod);
         }
@@ -46,9 +66,13 @@ export default function App() {
     handleHashChange();
 
     return () => window.removeEventListener('hashchange', handleHashChange);
-  }, []);
+  }, [products]);
 
   const navigateTo = (route: string) => {
+    if (route === 'admin' && !isAdmin) {
+      setIsAdminLoginOpen(true);
+      return;
+    }
     setCurrentRoute(route);
     window.location.hash = `#/${route}`;
     setMobileMenuOpen(false);
@@ -85,6 +109,52 @@ export default function App() {
 
   const totalCartCount = cart.reduce((s, i) => s + i.quantity, 0);
 
+  // If viewing the Admin Panel route
+  if (currentRoute === 'admin') {
+    if (!isAdmin) {
+      return (
+        <div className="min-h-screen bg-stone-900 text-stone-100 flex flex-col items-center justify-center p-6 text-center">
+          <div className="w-16 h-16 rounded-2xl bg-stone-800 border border-stone-700 flex items-center justify-center mb-4">
+            <Lock className="w-8 h-8 text-emerald-400" />
+          </div>
+          <h2 className="text-2xl font-serif font-bold text-white">Administrator Access Required</h2>
+          <p className="text-xs text-stone-400 mt-2 max-w-sm">
+            Please log in with your administrative credentials to manage products, store NAP, Google Maps coordinates, and customer orders.
+          </p>
+          <div className="mt-6 flex items-center gap-3">
+            <button
+              onClick={() => setIsAdminLoginOpen(true)}
+              className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-colors shadow-lg shadow-emerald-950/40"
+            >
+              Log In as Admin
+            </button>
+            <button
+              onClick={() => navigateTo('home')}
+              className="px-4 py-2.5 bg-stone-800 hover:bg-stone-700 text-stone-300 rounded-xl text-xs font-semibold"
+            >
+              Back to Store
+            </button>
+          </div>
+          <AdminLoginModal
+            isOpen={isAdminLoginOpen}
+            onClose={() => setIsAdminLoginOpen(false)}
+            onSuccess={() => {
+              setIsAdminLoginOpen(false);
+              setCurrentRoute('admin');
+            }}
+          />
+        </div>
+      );
+    }
+
+    return (
+      <AdminPanel
+        onBackToSite={() => navigateTo('home')}
+        onOpenProductDetail={(p) => setSelectedProduct(p)}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-stone-50 text-stone-900 font-sans">
       {/* Top Local SEO Announcement Bar */}
@@ -93,25 +163,45 @@ export default function App() {
           <div className="flex items-center gap-2">
             <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
             <span className="font-medium">
-              100% Certified Organic Food • Same-Day Local Curbside Pickup &amp; Portland Metro Delivery
+              {storeSettings.announcementText}
             </span>
           </div>
-          <div className="flex items-center gap-4 text-[11px] text-emerald-300">
+          <div className="flex items-center gap-3 text-[11px] text-emerald-300">
             <span className="flex items-center gap-1">
               <MapPin className="w-3 h-3 text-emerald-400" />
-              1420 SE Belmont St, Portland, OR
+              {storeSettings.address}, {storeSettings.cityStateZip}
             </span>
             <span className="hidden md:inline">•</span>
             <span className="hidden md:flex items-center gap-1">
               <Phone className="w-3 h-3 text-emerald-400" />
-              (503) 555-0198
+              {storeSettings.phone}
             </span>
+
+            {/* Admin Status Pill */}
+            {isAdmin ? (
+              <button
+                onClick={() => navigateTo('admin')}
+                className="px-2.5 py-0.5 rounded-full bg-emerald-600 text-white font-bold text-[10px] flex items-center gap-1 hover:bg-emerald-500 shadow-sm"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
+                Admin CMS Mode
+              </button>
+            ) : (
+              <button
+                onClick={() => setIsAdminLoginOpen(true)}
+                className="text-stone-300 hover:text-white underline font-semibold flex items-center gap-1 ml-1"
+              >
+                <Lock className="w-3 h-3 text-emerald-400" />
+                Admin Login
+              </button>
+            )}
+
             <button
               onClick={() => setIsSeoModalOpen(true)}
-              className="text-white underline font-semibold hover:text-emerald-300 flex items-center gap-1 ml-2"
+              className="text-white underline font-semibold hover:text-emerald-300 flex items-center gap-1 ml-1"
             >
               <Zap className="w-3 h-3 text-amber-300" />
-              SEO &amp; Sitemap Audit
+              SEO Audit
             </button>
           </div>
         </div>
@@ -130,10 +220,13 @@ export default function App() {
             </div>
             <div>
               <div className="font-serif font-black text-xl text-stone-900 tracking-tight leading-none">
-                EarthHarvest
+                {storeSettings.storeName.split(' ')[0]}
+                <span className="text-emerald-800 ml-1">
+                  {storeSettings.storeName.split(' ').slice(1, 2).join(' ')}
+                </span>
               </div>
               <span className="text-[10px] uppercase font-bold tracking-widest text-emerald-800 block mt-0.5">
-                Local Organic Market
+                {storeSettings.tagline}
               </span>
             </div>
           </div>
@@ -158,7 +251,7 @@ export default function App() {
                   : 'hover:text-stone-900 hover:bg-stone-100'
               }`}
             >
-              Organic Produce
+              Organic Produce ({products.length})
             </button>
             <button
               onClick={() => navigateTo('farm-boxes')}
@@ -178,7 +271,7 @@ export default function App() {
                   : 'hover:text-stone-900 hover:bg-stone-100'
               }`}
             >
-              Our Local Farmers
+              Our Local Farmers ({farms.length})
             </button>
             <button
               onClick={() => navigateTo('reviews')}
@@ -188,7 +281,7 @@ export default function App() {
                   : 'hover:text-stone-900 hover:bg-stone-100'
               }`}
             >
-              Customer Reviews
+              Customer Reviews ({reviews.length})
             </button>
             <button
               onClick={() => navigateTo('contact')}
@@ -202,15 +295,35 @@ export default function App() {
             </button>
           </nav>
 
-          {/* Right Action Icons: Cart & Mobile Menu */}
-          <div className="flex items-center gap-3">
+          {/* Right Action Icons: Admin CMS, Cart & Mobile Menu */}
+          <div className="flex items-center gap-2.5">
+            {/* Admin CMS Access Button */}
+            {isAdmin ? (
+              <button
+                onClick={() => navigateTo('admin')}
+                className="px-3 py-2 rounded-xl bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-emerald-900/20 transition-all"
+              >
+                <Settings className="w-3.5 h-3.5" />
+                <span>Admin CMS</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => setIsAdminLoginOpen(true)}
+                title="Log in to edit everything"
+                className="px-3 py-2 rounded-xl bg-stone-100 hover:bg-emerald-50 text-stone-700 hover:text-emerald-800 text-xs font-semibold flex items-center gap-1.5 transition-colors border border-stone-200"
+              >
+                <Lock className="w-3.5 h-3.5 text-emerald-700" />
+                <span className="hidden sm:inline">Admin CMS</span>
+              </button>
+            )}
+
             <button
               onClick={() => setIsSeoModalOpen(true)}
               title="View Local SEO & Sitemap"
-              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-stone-100 hover:bg-emerald-50 text-stone-700 hover:text-emerald-800 text-xs font-semibold transition-colors border border-stone-200"
+              className="hidden xl:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-semibold transition-colors border border-stone-200"
             >
               <Zap className="w-3.5 h-3.5 text-amber-500" />
-              <span>Sitemap / SEO</span>
+              <span>Sitemap</span>
             </button>
 
             <button
@@ -246,7 +359,7 @@ export default function App() {
               onClick={() => navigateTo('organic-produce')}
               className="w-full text-left px-4 py-2.5 rounded-xl text-sm font-semibold text-stone-800 hover:bg-emerald-50"
             >
-              Organic Produce Catalog
+              Organic Produce Catalog ({products.length})
             </button>
             <button
               onClick={() => navigateTo('farm-boxes')}
@@ -258,7 +371,7 @@ export default function App() {
               onClick={() => navigateTo('local-farmers')}
               className="w-full text-left px-4 py-2.5 rounded-xl text-sm font-semibold text-stone-800 hover:bg-emerald-50"
             >
-              Our Local Farmers &amp; Orchards
+              Our Local Farmers &amp; Orchards ({farms.length})
             </button>
             <button
               onClick={() => navigateTo('reviews')}
@@ -272,7 +385,24 @@ export default function App() {
             >
               Store Location &amp; Google Maps
             </button>
-            <div className="pt-2">
+            
+            <div className="pt-2 border-t border-stone-100 space-y-1">
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  if (isAdmin) {
+                    navigateTo('admin');
+                  } else {
+                    setIsAdminLoginOpen(true);
+                  }
+                }}
+                className="w-full text-left px-4 py-2.5 rounded-xl text-sm font-bold text-white bg-emerald-800 flex items-center justify-between"
+              >
+                <span>🛠️ Admin CMS Dashboard</span>
+                <span className="text-xs bg-emerald-900 px-2 py-0.5 rounded">
+                  {isAdmin ? 'Active' : 'Login'}
+                </span>
+              </button>
               <button
                 onClick={() => {
                   setMobileMenuOpen(false);
@@ -301,15 +431,16 @@ export default function App() {
                   <div className="lg:col-span-7 space-y-6">
                     <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 text-xs font-semibold">
                       <Sparkles className="w-3.5 h-3.5" />
-                      <span>Certified Organic Food Market • Portland, Oregon</span>
+                      <span>Certified Organic Food Market • {storeSettings.cityStateZip}</span>
                     </div>
 
                     <h1 className="text-4xl sm:text-5xl lg:text-6xl font-serif font-black tracking-tight leading-[1.1] text-white">
-                      Fresh, pesticide-free <span className="text-emerald-400 italic">organic food</span> directly from local family farms.
+                      {storeSettings.heroHeadline}{' '}
+                      <span className="text-emerald-400 italic">{storeSettings.heroHighlight}</span> directly from local family farms.
                     </h1>
 
                     <p className="text-base sm:text-lg text-stone-300 max-w-2xl leading-relaxed">
-                      Experience the highest standard of nutrient-dense nutrition. Harvested at dawn across Willamette Valley, Hood River &amp; Sauvie Island—available for same-day pickup on Belmont or eco-delivery.
+                      {storeSettings.heroSubtitle}
                     </p>
 
                     <div className="flex flex-wrap items-center gap-4 pt-2">
@@ -317,7 +448,7 @@ export default function App() {
                         onClick={() => navigateTo('organic-produce')}
                         className="px-7 py-4 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-bold text-sm tracking-wide transition-all shadow-xl shadow-emerald-500/20 flex items-center gap-2"
                       >
-                        <span>Shop Local Organic Produce</span>
+                        <span>Shop Local Organic Produce ({products.length})</span>
                         <ChevronRight className="w-4 h-4" />
                       </button>
 
@@ -326,8 +457,18 @@ export default function App() {
                         className="px-6 py-4 rounded-2xl bg-stone-800/90 hover:bg-stone-700 text-white font-semibold text-sm transition-all border border-stone-700 flex items-center gap-2"
                       >
                         <Navigation className="w-4 h-4 text-emerald-400" />
-                        <span>Find Belmont Store (Google Maps)</span>
+                        <span>Find Store (Google Maps)</span>
                       </button>
+
+                      {isAdmin && (
+                        <button
+                          onClick={() => navigateTo('admin')}
+                          className="px-4 py-4 rounded-2xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-xs font-bold transition-all border border-amber-500/40 flex items-center gap-1.5"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                          <span>Edit Hero &amp; Catalog</span>
+                        </button>
+                      )}
                     </div>
 
                     {/* Local Trust Badges */}
@@ -342,7 +483,7 @@ export default function App() {
                       </div>
                       <div>
                         <span className="font-bold text-lg text-white font-serif block">4.9 ★★★★★</span>
-                        <span className="text-stone-400">384 Local Google Reviews</span>
+                        <span className="text-stone-400">{reviews.length * 96}+ Verified Reviews</span>
                       </div>
                     </div>
                   </div>
@@ -360,10 +501,10 @@ export default function App() {
                       <div className="absolute bottom-6 left-6 right-6 p-4 rounded-2xl bg-stone-900/85 backdrop-blur-md border border-stone-700 text-stone-200">
                         <div className="flex items-center justify-between text-xs font-semibold text-emerald-400 mb-1">
                           <span>Today’s Morning Harvest</span>
-                          <span className="text-stone-300">Packed 2 Hours Ago</span>
+                          <span className="text-stone-300">Fresh Daily</span>
                         </div>
                         <p className="text-xs text-stone-300">
-                          Heirloom carrots, crisp Sauvie Island kale, and fresh golden honey available today at 1420 SE Belmont St.
+                          {products[0]?.name || 'Heirloom carrots and fresh produce'} available today at {storeSettings.address}.
                         </p>
                       </div>
                     </div>
@@ -381,9 +522,11 @@ export default function App() {
             {/* PRODUCT CATALOG PREVIEW SECTION */}
             <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <ProductCatalog
-                products={PRODUCTS}
+                products={products}
                 onSelectProduct={(p) => setSelectedProduct(p)}
                 onAddToCart={(p) => handleAddToCart(p, 1)}
+                isAdmin={isAdmin}
+                onEditProduct={(p) => navigateTo('admin')}
               />
             </section>
 
@@ -398,7 +541,7 @@ export default function App() {
                     Why Local Organic Food Outperforms Conventional Supermarkets
                   </h2>
                   <p className="text-emerald-100 text-sm md:text-base leading-relaxed">
-                    Most produce in industrial supermarket chains travels over 1,500 miles and sits in cold chemical storage for weeks. At EarthHarvest, our food is harvested less than 24 hours before it reaches our Belmont market or your doorstep—preserving crucial enzymes, phytonutrients, and unbelievable natural flavor.
+                    Most produce in industrial supermarket chains travels over 1,500 miles and sits in cold chemical storage for weeks. At {storeSettings.storeName}, our food is harvested less than 24 hours before it reaches our store or your doorstep—preserving crucial enzymes, phytonutrients, and unbelievable natural flavor.
                   </p>
                   
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-4">
@@ -424,18 +567,29 @@ export default function App() {
 
             {/* GOOGLE MAPS STORE SECTION */}
             <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="mb-6">
-                <span className="text-xs font-bold uppercase tracking-wider text-emerald-800 bg-emerald-50 px-3 py-1 rounded-full">
-                  Visit In Person
-                </span>
-                <h2 className="text-3xl font-serif font-bold text-stone-900 mt-1">
-                  Local Farm Stand &amp; Google Maps Navigation
-                </h2>
-                <p className="text-sm text-stone-600 mt-1">
-                  Centrally located on SE Belmont in Portland with electric charging stations and convenient curbside loading bays.
-                </p>
+              <div className="mb-6 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+                <div>
+                  <span className="text-xs font-bold uppercase tracking-wider text-emerald-800 bg-emerald-50 px-3 py-1 rounded-full">
+                    Visit In Person
+                  </span>
+                  <h2 className="text-3xl font-serif font-bold text-stone-900 mt-1">
+                    Local Farm Stand &amp; Google Maps Navigation
+                  </h2>
+                  <p className="text-sm text-stone-600 mt-1">
+                    Centrally located at {storeSettings.address} with free customer parking and curbside pickup bays.
+                  </p>
+                </div>
+                {isAdmin && (
+                  <button
+                    onClick={() => navigateTo('admin')}
+                    className="text-xs font-bold text-emerald-800 hover:underline flex items-center gap-1"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                    <span>Edit Location &amp; Coordinates</span>
+                  </button>
+                )}
               </div>
-              <GoogleMapsSection apiKey={apiKey} />
+              <GoogleMapsSection apiKey={apiKey} settings={storeSettings} />
             </section>
 
             {/* LOCAL FARMER PARTNERS */}
@@ -446,23 +600,34 @@ export default function App() {
                     Transparent Provenance
                   </span>
                   <h2 className="text-3xl font-serif font-bold text-stone-900 mt-1">
-                    Meet Your Local Organic Growers
+                    Meet Your Local Organic Growers ({farms.length})
                   </h2>
                   <p className="text-sm text-stone-600 mt-1">
                     Dedicated family farms cultivating living soil across Oregon and the Pacific Northwest.
                   </p>
                 </div>
-                <button
-                  onClick={() => navigateTo('local-farmers')}
-                  className="text-xs font-bold text-emerald-800 hover:text-emerald-950 flex items-center gap-1"
-                >
-                  <span>View all partner farm stories</span>
-                  <ArrowUpRight className="w-4 h-4" />
-                </button>
+                <div className="flex items-center gap-4">
+                  {isAdmin && (
+                    <button
+                      onClick={() => navigateTo('admin')}
+                      className="text-xs font-bold text-amber-800 hover:underline flex items-center gap-1"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                      <span>Manage Farms</span>
+                    </button>
+                  )}
+                  <button
+                    onClick={() => navigateTo('local-farmers')}
+                    className="text-xs font-bold text-emerald-800 hover:text-emerald-950 flex items-center gap-1"
+                  >
+                    <span>View all partner farm stories</span>
+                    <ArrowUpRight className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {LOCAL_FARMS.map((farm, i) => (
+                {farms.map((farm, i) => (
                   <div key={i} className="bg-white rounded-3xl overflow-hidden border border-stone-200 shadow-sm flex flex-col justify-between">
                     <div>
                       <div className="relative aspect-[16/10] overflow-hidden">
@@ -500,19 +665,33 @@ export default function App() {
               <span className="text-stone-900 font-semibold">Local Organic Food &amp; Produce</span>
             </nav>
 
-            <header className="space-y-2">
-              <h1 className="text-3xl md:text-4xl font-serif font-bold text-stone-900">
-                100% Certified Organic Food &amp; Farm Fresh Produce Near Me
-              </h1>
-              <p className="text-sm text-stone-600 max-w-3xl leading-relaxed">
-                Browse our complete seasonal inventory of USDA &amp; Oregon Tilth certified organic fruits, greens, root vegetables, artisan stone-milled breads, and local pasture-raised eggs. All harvested from family growers within 100 miles of Portland, OR.
-              </p>
+            <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="space-y-2">
+                <h1 className="text-3xl md:text-4xl font-serif font-bold text-stone-900">
+                  100% Certified Organic Food &amp; Farm Fresh Produce Near Me
+                </h1>
+                <p className="text-sm text-stone-600 max-w-3xl leading-relaxed">
+                  Browse our complete seasonal inventory of USDA &amp; Oregon Tilth certified organic fruits, greens, root vegetables, artisan stone-milled breads, and local pasture-raised eggs. All harvested from family growers within 100 miles.
+                </p>
+              </div>
+
+              {isAdmin && (
+                <button
+                  onClick={() => navigateTo('admin')}
+                  className="px-4 py-2.5 bg-emerald-800 hover:bg-emerald-900 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 self-start md:self-auto shrink-0 shadow"
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                  <span>Manage / Add Items in CMS</span>
+                </button>
+              )}
             </header>
 
             <ProductCatalog
-              products={PRODUCTS}
+              products={products}
               onSelectProduct={(p) => setSelectedProduct(p)}
               onAddToCart={(p) => handleAddToCart(p, 1)}
+              isAdmin={isAdmin}
+              onEditProduct={(p) => navigateTo('admin')}
             />
           </div>
         )}
@@ -551,12 +730,12 @@ export default function App() {
                   <ul className="mt-4 space-y-2 text-xs text-stone-700 border-t border-stone-100 pt-4">
                     <li className="flex items-center gap-2">✓ 7–9 Certified Organic produce items</li>
                     <li className="flex items-center gap-2">✓ Weekly recipe pairings from local chefs</li>
-                    <li className="flex items-center gap-2">✓ Free Belmont pickup or $4.99 delivery</li>
+                    <li className="flex items-center gap-2">✓ Free {storeSettings.storeName.split(' ')[0]} pickup or $4.99 delivery</li>
                   </ul>
                 </div>
                 <button
                   onClick={() => {
-                    const boxProd = PRODUCTS.find((p) => p.id === 'family-harvest-csa-box') || PRODUCTS[0];
+                    const boxProd = products.find((p) => p.id === 'family-harvest-csa-box') || products[0];
                     handleAddToCart(boxProd, 1);
                     setIsCartOpen(true);
                   }}
@@ -586,7 +765,7 @@ export default function App() {
                 </div>
                 <button
                   onClick={() => {
-                    const boxProd = PRODUCTS.find((p) => p.id === 'family-harvest-csa-box') || PRODUCTS[0];
+                    const boxProd = products.find((p) => p.id === 'family-harvest-csa-box') || products[0];
                     handleAddToCart(boxProd, 1);
                     setIsCartOpen(true);
                   }}
@@ -613,7 +792,7 @@ export default function App() {
                 </div>
                 <button
                   onClick={() => {
-                    const boxProd = PRODUCTS.find((p) => p.id === 'family-harvest-csa-box') || PRODUCTS[0];
+                    const boxProd = products.find((p) => p.id === 'family-harvest-csa-box') || products[0];
                     handleAddToCart(boxProd, 1);
                     setIsCartOpen(true);
                   }}
@@ -635,17 +814,28 @@ export default function App() {
               <span className="text-stone-900 font-semibold">Local Oregon Farm Partners</span>
             </nav>
 
-            <header className="space-y-2">
-              <h1 className="text-3xl md:text-4xl font-serif font-bold text-stone-900">
-                Local Organic Farmers &amp; Sustainable Agriculture in Oregon
-              </h1>
-              <p className="text-sm text-stone-600 max-w-3xl leading-relaxed">
-                Meet the stewards behind our certified organic food. By cutting out global industrial distributors, EarthHarvest pays our local growers fair-market compensation while bringing you freshly harvested food with zero carbon miles.
-              </p>
+            <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-2">
+                <h1 className="text-3xl md:text-4xl font-serif font-bold text-stone-900">
+                  Local Organic Farmers &amp; Sustainable Agriculture in Oregon
+                </h1>
+                <p className="text-sm text-stone-600 max-w-3xl leading-relaxed">
+                  Meet the stewards behind our certified organic food. By cutting out global industrial distributors, {storeSettings.storeName} pays our local growers fair-market compensation while bringing you freshly harvested food with zero carbon miles.
+                </p>
+              </div>
+              {isAdmin && (
+                <button
+                  onClick={() => navigateTo('admin')}
+                  className="px-4 py-2.5 bg-emerald-800 hover:bg-emerald-900 text-white rounded-xl text-xs font-bold shrink-0 flex items-center gap-1.5"
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                  <span>Edit Farmer Profiles</span>
+                </button>
+              )}
             </header>
 
             <div className="space-y-8">
-              {LOCAL_FARMS.map((farm, idx) => (
+              {farms.map((farm, idx) => (
                 <div key={idx} className="bg-white rounded-3xl overflow-hidden border border-stone-200 shadow-sm grid grid-cols-1 md:grid-cols-12">
                   <div className="md:col-span-5 relative min-h-[260px]">
                     <img
@@ -698,22 +888,34 @@ export default function App() {
               <span className="text-stone-900 font-semibold">Local Customer Reviews</span>
             </nav>
 
-            <header className="space-y-2">
-              <div className="flex items-center gap-2">
-                <span className="text-amber-500 font-bold text-xl">★★★★★</span>
-                <span className="text-stone-900 font-serif font-bold text-xl">4.9 out of 5 Rating</span>
-                <span className="text-xs text-stone-500">(384 Google &amp; Local Reviews)</span>
+            <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-amber-500 font-bold text-xl">★★★★★</span>
+                  <span className="text-stone-900 font-serif font-bold text-xl">4.9 out of 5 Rating</span>
+                  <span className="text-xs text-stone-500">({reviews.length} Featured Local Reviews)</span>
+                </div>
+                <h1 className="text-3xl md:text-4xl font-serif font-bold text-stone-900">
+                  What Neighbors Say About {storeSettings.storeName}
+                </h1>
+                <p className="text-sm text-stone-600 max-w-3xl leading-relaxed">
+                  Verified reviews from families, chefs, and health practitioners in Hawthorne, Belmont, Sunnyside, and the broader {storeSettings.cityStateZip.split(',')[0]} metro area.
+                </p>
               </div>
-              <h1 className="text-3xl md:text-4xl font-serif font-bold text-stone-900">
-                What Portland Neighbors Say About EarthHarvest Organic Food
-              </h1>
-              <p className="text-sm text-stone-600 max-w-3xl leading-relaxed">
-                Verified reviews from families, chefs, and health practitioners in Hawthorne, Belmont, Sunnyside, and the broader Portland metro area.
-              </p>
+
+              {isAdmin && (
+                <button
+                  onClick={() => navigateTo('admin')}
+                  className="px-4 py-2.5 bg-emerald-800 hover:bg-emerald-900 text-white rounded-xl text-xs font-bold shrink-0 flex items-center gap-1.5"
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                  <span>Manage Reviews</span>
+                </button>
+              )}
             </header>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {REVIEWS.map((r) => (
+              {reviews.map((r) => (
                 <div key={r.id} className="bg-white rounded-3xl p-6 border border-stone-200 shadow-sm space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
@@ -723,7 +925,7 @@ export default function App() {
                         <span>{r.location}</span>
                       </div>
                     </div>
-                    <div className="text-amber-500 text-sm">★★★★★</div>
+                    <div className="text-amber-500 text-sm">{'★'.repeat(r.rating)}</div>
                   </div>
 
                   <p className="text-stone-700 text-xs md:text-sm leading-relaxed">
@@ -749,20 +951,32 @@ export default function App() {
               <span className="text-stone-900 font-semibold">Store Location &amp; Contact</span>
             </nav>
 
-            <header className="space-y-2">
-              <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800">
-                Local Store Location &amp; Contact
-              </span>
-              <h1 className="text-3xl md:text-4xl font-serif font-bold text-stone-900">
-                Visit EarthHarvest Organic Market on SE Belmont
-              </h1>
-              <p className="text-sm text-stone-600 max-w-3xl leading-relaxed">
-                Find driving directions, store operating hours, curbside pickup instructions, and interactive Google Maps routing for fresh organic food in Portland, OR.
-              </p>
+            <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-2">
+                <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800">
+                  Local Store Location &amp; Contact
+                </span>
+                <h1 className="text-3xl md:text-4xl font-serif font-bold text-stone-900">
+                  Visit {storeSettings.storeName}
+                </h1>
+                <p className="text-sm text-stone-600 max-w-3xl leading-relaxed">
+                  Find driving directions, store operating hours, curbside pickup instructions, and interactive Google Maps routing for fresh organic food in {storeSettings.cityStateZip}.
+                </p>
+              </div>
+
+              {isAdmin && (
+                <button
+                  onClick={() => navigateTo('admin')}
+                  className="px-4 py-2.5 bg-emerald-800 hover:bg-emerald-900 text-white rounded-xl text-xs font-bold shrink-0 flex items-center gap-1.5"
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                  <span>Edit NAP &amp; Map Coordinates</span>
+                </button>
+              )}
             </header>
 
             {/* Google Maps Main Embed Component */}
-            <GoogleMapsSection apiKey={apiKey} />
+            <GoogleMapsSection apiKey={apiKey} settings={storeSettings} />
 
             {/* Contact Details & Inquiry Form */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 pt-6">
@@ -776,9 +990,9 @@ export default function App() {
                     <MapPin className="w-5 h-5 text-emerald-700 shrink-0 mt-0.5" />
                     <div>
                       <strong className="text-stone-900 block text-sm">Physical Address:</strong>
-                      <span>EarthHarvest Organic Food &amp; Farm Market</span><br />
-                      <span>1420 SE Belmont St</span><br />
-                      <span>Portland, OR 97214 (Central Eastside District)</span>
+                      <span>{storeSettings.storeName}</span><br />
+                      <span>{storeSettings.address}</span><br />
+                      <span>{storeSettings.cityStateZip}</span>
                     </div>
                   </div>
 
@@ -786,7 +1000,7 @@ export default function App() {
                     <Phone className="w-5 h-5 text-emerald-700 shrink-0 mt-0.5" />
                     <div>
                       <strong className="text-stone-900 block text-sm">Customer Support &amp; Phone Orders:</strong>
-                      <span>(503) 555-0198</span>
+                      <span>{storeSettings.phone}</span>
                     </div>
                   </div>
 
@@ -794,7 +1008,7 @@ export default function App() {
                     <Mail className="w-5 h-5 text-emerald-700 shrink-0 mt-0.5" />
                     <div>
                       <strong className="text-stone-900 block text-sm">Email Inquiries:</strong>
-                      <span>support@earthharvest-organic.local</span>
+                      <span>{storeSettings.email}</span>
                     </div>
                   </div>
 
@@ -802,14 +1016,14 @@ export default function App() {
                     <Clock className="w-5 h-5 text-emerald-700 shrink-0 mt-0.5" />
                     <div>
                       <strong className="text-stone-900 block text-sm">Operating Hours:</strong>
-                      <span>Mon - Sat: 7:30 AM – 8:00 PM</span><br />
-                      <span>Sunday: 8:30 AM – 6:00 PM</span>
+                      <span>{storeSettings.hoursWeekday}</span><br />
+                      <span>{storeSettings.hoursSunday}</span>
                     </div>
                   </div>
                 </div>
 
                 <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100 text-xs text-emerald-900">
-                  <strong>Parking Note:</strong> Free 45-minute parking in our private rear lot off 14th Ave, plus 4 Level-2 EV charging stalls.
+                  <strong>Parking Note:</strong> {storeSettings.parkingNote}
                 </div>
               </div>
 
@@ -825,7 +1039,7 @@ export default function App() {
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
-                    alert("Thank you! Your message has been sent to our Belmont market team.");
+                    alert("Thank you! Your message has been sent to our farm market team.");
                   }}
                   className="space-y-4"
                 >
@@ -893,13 +1107,32 @@ export default function App() {
                 <div className="w-9 h-9 rounded-xl bg-emerald-700 flex items-center justify-center text-white">
                   <Leaf className="w-5 h-5 text-emerald-200" />
                 </div>
-                <span className="font-serif font-bold text-lg text-white">EarthHarvest Organic</span>
+                <span className="font-serif font-bold text-lg text-white">{storeSettings.storeName}</span>
               </div>
               <p className="text-xs text-stone-400 leading-relaxed">
-                Portland's premier independent organic food market and CSA subscription hub. Dedicated to pesticide-free soil health, local family farmers, and transparent nutrition.
+                Pacific Northwest premier independent organic food market and CSA subscription hub. Dedicated to pesticide-free soil health, local family farmers, and transparent nutrition.
               </p>
               <div className="text-[11px] text-stone-400">
                 Oregon Tilth Certified Organic Retailer #OR-97214
+              </div>
+              <div className="pt-2">
+                {isAdmin ? (
+                  <button
+                    onClick={() => navigateTo('admin')}
+                    className="px-3 py-1.5 rounded-lg bg-emerald-900/60 hover:bg-emerald-800 text-emerald-300 text-xs font-semibold flex items-center gap-1.5 transition-colors border border-emerald-700/50"
+                  >
+                    <Settings className="w-3.5 h-3.5" />
+                    <span>Open Admin CMS</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setIsAdminLoginOpen(true)}
+                    className="px-3 py-1.5 rounded-lg bg-stone-900 hover:bg-stone-800 text-stone-400 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-colors border border-stone-800"
+                  >
+                    <Lock className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Admin CMS Login</span>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -911,7 +1144,7 @@ export default function App() {
               <ul className="space-y-2 text-xs text-stone-400">
                 <li>
                   <button onClick={() => navigateTo('organic-produce')} className="hover:text-emerald-400 transition-colors">
-                    Organic Produce Catalog
+                    Organic Produce Catalog ({products.length})
                   </button>
                 </li>
                 <li>
@@ -921,17 +1154,23 @@ export default function App() {
                 </li>
                 <li>
                   <button onClick={() => navigateTo('local-farmers')} className="hover:text-emerald-400 transition-colors">
-                    Pacific NW Farmer Directory
+                    Pacific NW Farmer Directory ({farms.length})
                   </button>
                 </li>
                 <li>
                   <button onClick={() => navigateTo('reviews')} className="hover:text-emerald-400 transition-colors">
-                    Portland Verified Customer Reviews
+                    Verified Customer Reviews ({reviews.length})
                   </button>
                 </li>
                 <li>
                   <button onClick={() => navigateTo('contact')} className="hover:text-emerald-400 transition-colors">
                     Google Maps Store &amp; Curbside Pickup
+                  </button>
+                </li>
+                <li>
+                  <button onClick={() => navigateTo('admin')} className="hover:text-amber-400 transition-colors flex items-center gap-1">
+                    <Settings className="w-3 h-3" />
+                    <span>Admin Site Builder</span>
                   </button>
                 </li>
               </ul>
@@ -943,13 +1182,11 @@ export default function App() {
                 Local Search Keywords
               </h4>
               <div className="flex flex-wrap gap-1.5 text-[11px] text-stone-400">
-                <span className="bg-stone-900 px-2 py-1 rounded">organic food near me</span>
-                <span className="bg-stone-900 px-2 py-1 rounded">fresh organic produce Portland</span>
-                <span className="bg-stone-900 px-2 py-1 rounded">Belmont organic market</span>
-                <span className="bg-stone-900 px-2 py-1 rounded">local farm delivery Oregon</span>
-                <span className="bg-stone-900 px-2 py-1 rounded">pesticide free vegetables</span>
-                <span className="bg-stone-900 px-2 py-1 rounded">Sauvie Island produce</span>
-                <span className="bg-stone-900 px-2 py-1 rounded">pasture eggs SE Portland</span>
+                {storeSettings.focusKeywords?.map((kw, i) => (
+                  <span key={i} className="bg-stone-900 px-2 py-1 rounded">
+                    {kw}
+                  </span>
+                ))}
               </div>
             </div>
 
@@ -997,14 +1234,14 @@ export default function App() {
           {/* Bottom Copyright & NAP Verification */}
           <div className="pt-8 border-t border-stone-900 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-stone-400">
             <div>
-              © 2026 EarthHarvest Organic Food &amp; Farm Market. All rights reserved. 1420 SE Belmont St, Portland, OR 97214 • (503) 555-0198
+              © 2026 {storeSettings.storeName}. All rights reserved. {storeSettings.address}, {storeSettings.cityStateZip} • {storeSettings.phone}
             </div>
             <div className="flex items-center gap-4">
               <span>Fast Page Load: 0.4s FCP</span>
               <span>•</span>
               <span>100% Mobile Responsive</span>
               <span>•</span>
-              <span>Valid Schema.org JSON-LD</span>
+              <span>Admin CMS Active</span>
             </div>
           </div>
         </div>
@@ -1028,6 +1265,15 @@ export default function App() {
       <SeoDashboardModal
         isOpen={isSeoModalOpen}
         onClose={() => setIsSeoModalOpen(false)}
+      />
+
+      <AdminLoginModal
+        isOpen={isAdminLoginOpen}
+        onClose={() => setIsAdminLoginOpen(false)}
+        onSuccess={() => {
+          setIsAdminLoginOpen(false);
+          navigateTo('admin');
+        }}
       />
     </div>
   );

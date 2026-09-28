@@ -1,3 +1,5 @@
+import { StoreSettings } from '../types/store';
+
 export interface Product {
   id: string;
   name: string;
@@ -275,6 +277,34 @@ export const LOCAL_FARMS: FarmPartner[] = [
     bio: 'Pioneering regenerative rotational grazing that sequesters soil carbon while raising the happiest pasture birds in Oregon.'
   }
 ];
+
+export const DEFAULT_STORE_SETTINGS: StoreSettings = {
+  storeName: "EarthHarvest Organic Food & Farm Market",
+  tagline: "Local Organic Market & Sustainable Farm Stand",
+  address: "1420 SE Belmont St",
+  cityStateZip: "Portland, OR 97214",
+  phone: "(503) 555-0198",
+  email: "support@earthharvest-organic.local",
+  hoursWeekday: "Mon - Sat: 7:30 AM – 8:00 PM",
+  hoursSunday: "Sunday: 8:30 AM – 6:00 PM",
+  announcementText: "100% Certified Organic Food • Same-Day Local Curbside Pickup & Portland Metro Delivery",
+  heroHeadline: "Fresh, pesticide-free",
+  heroHighlight: "organic food",
+  heroSubtitle: "Experience the highest standard of nutrient-dense nutrition. Harvested at dawn across Willamette Valley, Hood River & Sauvie Island—available for same-day pickup on Belmont or eco-delivery.",
+  lat: 45.5165,
+  lng: -122.6515,
+  metaTitle: "EarthHarvest Organic Food & Local Farm Market | Fresh Produce & Delivery",
+  metaDescription: "Shop 100% certified organic food, local pesticide-free farm produce, and seasonal CSA boxes in Portland & Pacific NW. Same-day local pickup & eco-friendly delivery.",
+  focusKeywords: [
+    "organic food near me",
+    "fresh organic produce Portland",
+    "local organic market Belmont",
+    "farm to table delivery Oregon",
+    "pesticide free vegetables",
+    "local CSA boxes"
+  ],
+  parkingNote: "Free 45-minute parking in our private rear lot off 14th Ave, plus 4 Level-2 EV charging stalls."
+};
 
 export const LOCAL_SEO_KEYWORDS = [
   { keyword: 'organic food near me', monthlyVolume: '74,000/mo', intent: 'High Local Transactional', rank: '#1 SE Portland' },

@@ -1,17 +1,21 @@
 import React, { useState } from 'react';
 import { Product } from '../data/organicFoodData';
-import { Search, SlidersHorizontal, Check, ShoppingBag, Sparkles, MapPin, Leaf, Heart, Eye } from 'lucide-react';
+import { Search, SlidersHorizontal, Check, ShoppingBag, Sparkles, MapPin, Leaf, Heart, Eye, Edit3 } from 'lucide-react';
 
 interface ProductCatalogProps {
   products: Product[];
   onSelectProduct: (product: Product) => void;
   onAddToCart: (product: Product) => void;
+  isAdmin?: boolean;
+  onEditProduct?: (product: Product) => void;
 }
 
 export const ProductCatalog: React.FC<ProductCatalogProps> = ({
   products,
   onSelectProduct,
   onAddToCart,
+  isAdmin,
+  onEditProduct,
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -174,6 +178,20 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
                   </div>
 
                   <div className="flex items-center gap-2">
+                    {isAdmin && onEditProduct && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onEditProduct(product);
+                        }}
+                        title="Edit this product in CMS"
+                        className="p-2 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-900 text-xs font-semibold flex items-center gap-1 transition-colors"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">Edit</span>
+                      </button>
+                    )}
                     <button
                       onClick={(e) => handleAdd(product, e)}
                       className={`inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all ${
